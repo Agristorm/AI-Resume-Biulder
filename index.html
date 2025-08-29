@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATS-Friendly Resume Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth.js/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Set up PDF.js worker source
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #e5e7eb;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #9ca3af;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #6b7280;
+        }
+        
+        /* Specific print styles for the resume section */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #resume-output, #resume-output * {
+                visibility: visible;
+            }
+            #resume-output {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 2rem;
+                box-shadow: none;
+                border: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <h1 class="text-4xl font-bold text-center text-gray-900 mb-2">Resume Builder & Reviewer</h1>
+        <p class="text-center text-gray-600 mb-8">Create an ATS-friendly resume or get an AI review of your existing one.</p>
+
+        <div class="grid lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-xl space-y-6">
+                <div class="pb-6 border-b-2 border-gray-200">
+                    <h2 class="text-2xl font-bold mb-4">Build Your Resume</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                            <input type="text" id="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="John Doe">
+                        </div>
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                            <input type="email" id="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="john.doe@example.com">
+                        </div>
+                        <div>
+                            <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
+                            <input type="tel" id="phone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="(123) 456-7890">
+                        </div>
+                        <div>
+                            <label for="linkedin" class="block text-sm font-medium text-gray-700">LinkedIn URL</label>
+                            <input type="url" id="linkedin" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="linkedin.com/in/johndoe">
+                        </div>
+
+                        <div>
+                            <label for="industry" class="block text-sm font-medium text-gray-700">Target Industry</label>
+                            <input type="text" id="industry" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="Software Engineering">
+                        </div>
+                        <div>
+                            <label for="summary" class="block text-sm font-medium text-gray-700">Professional Summary (Draft)</label>
+                            <textarea id="summary" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="I am a motivated professional..."></textarea>
+                        </div>
+
+                        <div id="experience-container" class="space-y-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Work Experience</h3>
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600">Job Title</label>
+                                    <input type="text" class="mt-1 job-title block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 border" placeholder="Software Engineer">
+                                </div>
+                                <div class="mt-2">
+                                    <label class="block text-xs font-medium text-gray-600">Company</label>
+                                    <input type="text" class="mt-1 company block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 border" placeholder="Tech Innovations Inc.">
+                                </div>
+                                <div class="mt-2">
+                                    <label class="block text-xs font-medium text-gray-600">Responsibilities (Draft)</label>
+                                    <textarea rows="3" class="mt-1 responsibilities block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 border" placeholder="Managed full-stack development..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="add-experience" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+                            Add More Experience
+                        </button>
+                        
+                        <div class="mt-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Education</h3>
+                            <div>
+                                <label for="degree" class="block text-sm font-medium text-gray-700">Degree</label>
+                                <input type="text" id="degree" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="B.S. in Computer Science">
+                            </div>
+                            <div class="mt-2">
+                                <label for="university" class="block text-sm font-medium text-gray-700">University</label>
+                                <input type="text" id="university" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="State University">
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <label for="skills" class="block text-sm font-medium text-gray-700">Skills (Comma-separated)</label>
+                            <input type="text" id="skills" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border" placeholder="JavaScript, Python, React, AWS">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 space-y-4">
+                        <button id="generate-button" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-lg text-lg font-semibold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out">
+                            Generate & Optimize Resume
+                        </button>
+                        <div id="loading-indicator-builder" class="hidden text-center text-sm text-gray-500">
+                            <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full border-t-indigo-500 border-gray-200" role="status"></div>
+                            <p class="mt-2">Optimizing your resume with AI...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-6">
+                    <h2 class="text-2xl font-bold mb-4">Review Your Existing CV</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="cv-file" class="block text-sm font-medium text-gray-700">Upload your resume file (.txt, .docx, .pdf)</label>
+                            <input type="file" id="cv-file" accept=".txt, .docx, .pdf" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+                            <span id="file-name" class="text-sm text-gray-500 mt-2 block">No file selected</span>
+                        </div>
+                    </div>
+                    <div class="mt-6">
+                        <button id="review-button" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-lg text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                            Get CV Review
+                        </button>
+                        <div id="loading-indicator-reviewer" class="hidden text-center text-sm text-gray-500">
+                            <div class="spinner-border animate-spin inline-block w-8 h-8 border-4 rounded-full border-t-blue-500 border-gray-200" role="status"></div>
+                            <p class="mt-2">Analyzing your CV...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h2 class="text-2xl font-bold mb-4">Choose a Template</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button id="template-1-btn" class="template-btn border-2 border-indigo-500 p-2 rounded-xl transition-all duration-200 ease-in-out cursor-pointer">
+                            <img src="https://placehold.co/300x400/e0e7ff/1d4ed8?text=Classic" alt="Template 1" class="w-full h-auto rounded-lg">
+                            <span class="block text-center mt-2 font-medium text-sm">Classic</span>
+                        </button>
+                        <button id="template-2-btn" class="template-btn border-2 border-transparent hover:border-indigo-500 p-2 rounded-xl transition-all duration-200 ease-in-out cursor-pointer">
+                            <img src="https://placehold.co/300x400/ffe4e6/be185d?text=Modern" alt="Template 2" class="w-full h-auto rounded-lg">
+                            <span class="block text-center mt-2 font-medium text-sm">Modern</span>
+                        </button>
+                        <button id="template-3-btn" class="template-btn border-2 border-transparent hover:border-indigo-500 p-2 rounded-xl transition-all duration-200 ease-in-out cursor-pointer">
+                            <img src="https://placehold.co/300x400/dbeafe/1e40af?text=Professional" alt="Template 3" class="w-full h-auto rounded-lg">
+                            <span class="block text-center mt-2 font-medium text-sm">Professional</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h2 class="text-2xl font-bold mb-4">Export Options</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button id="export-html" class="export-btn w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-gray-500 hover:bg-gray-600 transition duration-150 ease-in-out">
+                            Export as HTML
+                        </button>
+                        <button id="export-pdf" class="export-btn w-full py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition duration-150 ease-in-out">
+                            Export as PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 relative bg-white p-6 rounded-2xl shadow-xl min-h-screen">
+                <div id="main-content-area">
+                    <h2 class="text-2xl font-bold text-center mb-4">Resume Preview</h2>
+                    <div id="resume-output" class="p-8 bg-white border border-gray-300 rounded-lg shadow-inner min-h-[calc(100vh-20rem)]">
+                        <div id="template-1" class="template">
+                            <div class="text-center pb-4 mb-4 border-b border-gray-400">
+                                <h1 class="text-4xl font-bold text-gray-800" id="resume-name-1">John Doe</h1>
+                                <p class="text-gray-600 mt-2" id="resume-contact-1">john.doe@email.com | (123) 456-7890 | linkedin.com/in/johndoe</p>
+                            </div>
+                            <div class="py-4 mb-4 border-b border-gray-400">
+                                <h2 class="text-2xl font-bold text-gray-700 mb-2">Summary</h2>
+                                <p class="text-gray-600" id="resume-summary-1">A dynamic and results-driven professional with a proven track record of success in software development. Eager to leverage technical skills and problem-solving abilities to contribute to a forward-thinking organization.</p>
+                            </div>
+                            <div class="py-4 mb-4 border-b border-gray-400">
+                                <h2 class="text-2xl font-bold text-gray-700 mb-2">Experience</h2>
+                                <div class="space-y-4" id="resume-experience-1">
+                                    <div class="mb-2">
+                                        <div class="flex justify-between">
+                                            <h3 class="font-bold text-gray-700">Software Engineer</h3>
+                                            <span class="text-gray-500">2020 - Present</span>
+                                        </div>
+                                        <p class="italic text-gray-600">Tech Innovations Inc.</p>
+                                        <ul class="list-disc list-inside mt-2 text-gray-600">
+                                            <li>Developed and maintained full-stack applications using React and Node.js.</li>
+                                            <li>Collaborated with cross-functional teams to define, design, and ship new features.</li>
+                                            <li>Optimized application performance, reducing load times by 20%.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="py-4 mb-4 border-b border-gray-400">
+                                <h2 class="text-2xl font-bold text-gray-700 mb-2">Education</h2>
+                                <p class="text-gray-600" id="resume-education-1">B.S. in Computer Science | State University | Graduated May 2018</p>
+                            </div>
+                            <div class="py-4 mb-4 border-b border-gray-400">
+                                <h2 class="text-2xl font-bold text-gray-700 mb-2">Skills</h2>
+                                <p class="text-gray-600" id="resume-skills-1">JavaScript, Python, React, Node.js, SQL, AWS, Git</p>
+                            </div>
+                        </div>
+
+                        <div id="template-2" class="template hidden">
+                            <div class="flex flex-col-reverse md:flex-row gap-8">
+                                <div class="md:w-2/3">
+                                    <h1 class="text-4xl font-extrabold text-pink-700" id="resume-name-2">John Doe</h1>
+                                    <p class="text-pink-500 font-medium mb-4" id="resume-contact-2">john.doe@email.com | (123) 456-7890 | linkedin.com/in/johndoe</p>
+                                    
+                                    <div class="mb-6">
+                                        <h2 class="text-xl font-bold text-pink-700 mb-2 border-b-2 border-pink-500 pb-1">Summary</h2>
+                                        <p class="text-gray-700" id="resume-summary-2">A dynamic and results-driven professional with a proven track record of success in software development. Eager to leverage technical skills and problem-solving abilities to contribute to a forward-thinking organization.</p>
+                                    </div>
+                                    <div class="mb-6">
+                                        <h2 class="text-xl font-bold text-pink-700 mb-2 border-b-2 border-pink-500 pb-1">Experience</h2>
+                                        <div class="space-y-4" id="resume-experience-2">
+                                            <div class="mb-2">
+                                                <div class="flex justify-between">
+                                                    <h3 class="font-bold text-gray-700">Software Engineer</h3>
+                                                    <span class="text-pink-500">2020 - Present</span>
+                                                </div>
+                                                <p class="italic text-gray-600">Tech Innovations Inc.</p>
+                                                <ul class="list-disc list-inside mt-2 text-gray-600">
+                                                    <li>Developed and maintained full-stack applications using React and Node.js.</li>
+                                                    <li>Collaborated with cross-functional teams to define, design, and ship new features.</li>
+                                                    <li>Optimized application performance, reducing load times by 20%.</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="md:w-1/3 p-4 bg-pink-100 rounded-lg">
+                                    <div class="mb-4">
+                                        <h2 class="text-xl font-bold text-pink-700 mb-2">Education</h2>
+                                        <p class="text-gray-700" id="resume-education-2">B.S. in Computer Science<br>State University</p>
+                                    </div>
+                                    <div>
+                                        <h2 class="text-xl font-bold text-pink-700 mb-2">Skills</h2>
+                                        <p class="text-gray-700" id="resume-skills-2">JavaScript, Python, React, Node.js, SQL, AWS, Git</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="template-3" class="template hidden">
+                            <div class="flex">
+                                <div class="w-1/3 p-6 bg-blue-800 text-white rounded-l-lg">
+                                    <div class="mb-6">
+                                        <h2 class="text-xl font-semibold mb-2">Contact</h2>
+                                        <p class="text-sm" id="resume-contact-3">john.doe@email.com<br>(123) 456-7890<br>linkedin.com/in/johndoe</p>
+                                    </div>
+                                    <div class="mb-6">
+                                        <h2 class="text-xl font-semibold mb-2">Education</h2>
+                                        <p class="text-sm" id="resume-education-3">B.S. in Computer Science<br>State University</p>
+                                    </div>
+                                    <div class="mb-6">
+                                        <h2 class="text-xl font-semibold mb-2">Skills</h2>
+                                        <p class="text-sm" id="resume-skills-3">JavaScript, Python, React, Node.js, SQL, AWS, Git</p>
+                                    </div>
+                                </div>
+                                <div class="w-2/3 p-6 bg-white rounded-r-lg">
+                                    <h1 class="text-4xl font-bold text-blue-900 mb-2" id="resume-name-3">John Doe</h1>
+                                    <div class="mb-6">
+                                        <h2 class="text-xl font-bold text-blue-800 mb-2 border-b-2 border-blue-500 pb-1">Summary</h2>
+                                        <p class="text-gray-700" id="resume-summary-3">A dynamic and results-driven professional with a proven track record of success in software development. Eager to leverage technical skills and problem-solving abilities to contribute to a forward-thinking organization.</p>
+                                    </div>
+                                    <div class="mb-6">
+                                        <h2 class="text-xl font-bold text-blue-800 mb-2 border-b-2 border-blue-500 pb-1">Experience</h2>
+                                        <div class="space-y-4" id="resume-experience-3">
+                                            <div class="mb-2">
+                                                <div class="flex justify-between">
+                                                    <h3 class="font-bold text-gray-700">Software Engineer</h3>
+                                                    <span class="text-gray-500">2020 - Present</span>
+                                                </div>
+                                                <p class="italic text-gray-600">Tech Innovations Inc.</p>
+                                                <ul class="list-disc list-inside mt-2 text-gray-600">
+                                                    <li>Developed and maintained full-stack applications using React and Node.js.</li>
+                                                    <li>Collaborated with cross-functional teams to define, design, and ship new features.</li>
+                                                    <li>Optimized application performance, reducing load times by 20%.</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="review-output" class="hidden mt-8 p-8 bg-white border border-gray-300 rounded-lg shadow-inner min-h-[calc(100vh-20rem)]">
+                    <h2 class="text-2xl font-bold text-center mb-4">CV Review Results</h2>
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script>
+        // --- API Configuration and Helper Functions ---
+        // The API key is automatically provided by the Canvas environment.
+        const API_KEY = "";
+        const MODEL_NAME = "gemini-2.5-flash-preview-05-20";
+
+        // Exponential backoff for API calls
+        async function fetchWithBackoff(url, options, retries = 3, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    // If it's a 429 Too Many Requests, retry
+                    if (response.status === 429 && retries > 0) {
+                        console.warn(`API call failed with status ${response.status}. Retrying in ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed after all retries:', error);
+                throw error;
+            }
+        }
+
+        // --- DOM Elements and State ---
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const phoneInput = document.getElementById('phone');
+        const linkedinInput = document.getElementById('linkedin');
+        const industryInput = document.getElementById('industry');
+        const summaryInput = document.getElementById('summary');
+        const degreeInput = document.getElementById('degree');
+        const universityInput = document.getElementById('university');
+        const skillsInput = document.getElementById('skills');
+        const experienceContainer = document.getElementById('experience-container');
+        const addExperienceBtn = document.getElementById('add-experience');
+        const cvFileInput = document.getElementById('cv-file');
+        const fileNameSpan = document.getElementById('file-name');
+        const reviewButton = document.getElementById('review-button');
+        const reviewOutputDiv = document.getElementById('review-output');
+        const mainContentArea = document.getElementById('main-content-area');
+
+        const generateBtn = document.getElementById('generate-button');
+        const loadingIndicatorBuilder = document.getElementById('loading-indicator-builder');
+        const loadingIndicatorReviewer = document.getElementById('loading-indicator-reviewer');
+        const resumeOutput = document.getElementById('resume-output');
+        const templateButtons = document.querySelectorAll('.template-btn');
+        const templates = document.querySelectorAll('.template');
+        const exportHtmlBtn = document.getElementById('export-html');
+        const exportPdfBtn = document.getElementById('export-pdf');
+        
+        let currentTemplateId = 'template-1';
+        let reviewContent = "";
+
+        // --- Event Listeners ---
+
+        // Listen for input changes to update the preview in real-time
+        document.addEventListener('input', (e) => {
+            if (e.target.closest('#experience-container') || [nameInput, emailInput, phoneInput, linkedinInput, industryInput, summaryInput, degreeInput, universityInput, skillsInput].includes(e.target)) {
+                updatePreview();
+            }
+        });
+
+        // Update file name display
+        cvFileInput.addEventListener('change', () => {
+            if (cvFileInput.files.length > 0) {
+                fileNameSpan.textContent = cvFileInput.files[0].name;
+            } else {
+                fileNameSpan.textContent = "No file selected";
+            }
+        });
+
+        // Add new experience fields
+        addExperienceBtn.addEventListener('click', () => {
+            const newExperienceBlock = document.createElement('div');
+            newExperienceBlock.className = 'bg-gray-50 p-4 rounded-lg border border-gray-200 mt-4';
+            newExperienceBlock.innerHTML = `
+                <div>
+                    <label class="block text-xs font-medium text-gray-600">Job Title</label>
+                    <input type="text" class="mt-1 job-title block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 border" placeholder="Job Title">
+                </div>
+                <div class="mt-2">
+                    <label class="block text-xs font-medium text-gray-600">Company</label>
+                    <input type="text" class="mt-1 company block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 border" placeholder="Company Name">
+                </div>
+                <div class="mt-2">
+                    <label class="block text-xs font-medium text-gray-600">Responsibilities (Draft)</label>
+                    <textarea rows="3" class="mt-1 responsibilities block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 border" placeholder="Managed projects, delivered features, etc."></textarea>
+                </div>
+            `;
+            experienceContainer.appendChild(newExperienceBlock);
+            updatePreview();
+        });
+
+        // Generate and optimize resume content
+        generateBtn.addEventListener('click', generateOptimizedContent);
+
+        // Review existing CV
+        reviewButton.addEventListener('click', reviewCV);
+
+        // Template selection logic
+        templateButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const newTemplateId = btn.id.replace('-btn', '');
+                currentTemplateId = newTemplateId;
+                updateTemplateDisplay();
+                updatePreview();
+            });
+        });
+
+        // Export functionality
+        exportHtmlBtn.addEventListener('click', exportHtml);
+        exportPdfBtn.addEventListener('click', exportPdf);
+
+        // --- Core Functions ---
+
+        function updatePreview() {
+            // Hide review output and show main content
+            reviewOutputDiv.classList.add('hidden');
+            mainContentArea.classList.remove('hidden');
+
+            // Collect data from form
+            const name = nameInput.value || "John Doe";
+            const email = emailInput.value || "john.doe@email.com";
+            const phone = phoneInput.value || "(123) 456-7890";
+            const linkedin = linkedinInput.value || "linkedin.com/in/johndoe";
+            const summary = summaryInput.value || "A dynamic and results-driven professional with a proven track record of success in software development. Eager to leverage technical skills and problem-solving abilities to contribute to a forward-thinking organization.";
+            const degree = degreeInput.value || "B.S. in Computer Science";
+            const university = universityInput.value || "State University";
+            const skills = skillsInput.value || "JavaScript, Python, React, Node.js, SQL, AWS, Git";
+            
+            // Collect experience entries
+            const experienceEntries = Array.from(experienceContainer.querySelectorAll('.bg-gray-50')).map(block => {
+                const jobTitle = block.querySelector('.job-title').value || "Job Title";
+                const company = block.querySelector('.company').value || "Company Name";
+                const responsibilities = block.querySelector('.responsibilities').value || "Managed projects, delivered features, etc.";
+                const responsibilityList = responsibilities.split('\n').filter(Boolean).map(item => `<li>${item}</li>`).join('');
+                return { jobTitle, company, responsibilityList };
+            });
+
+            // Update Template 1
+            const t1 = document.getElementById('template-1');
+            if (t1) {
+                t1.querySelector('#resume-name-1').textContent = name;
+                t1.querySelector('#resume-contact-1').textContent = `${email} | ${phone} | ${linkedin}`;
+                t1.querySelector('#resume-summary-1').textContent = summary;
+                t1.querySelector('#resume-education-1').textContent = `${degree} | ${university}`;
+                t1.querySelector('#resume-skills-1').textContent = skills;
+                const experience1 = t1.querySelector('#resume-experience-1');
+                experience1.innerHTML = experienceEntries.map(exp => `
+                    <div class="mb-2">
+                        <div class="flex justify-between">
+                            <h3 class="font-bold text-gray-700">${exp.jobTitle}</h3>
+                            <span class="text-gray-500">2020 - Present</span>
+                        </div>
+                        <p class="italic text-gray-600">${exp.company}</p>
+                        <ul class="list-disc list-inside mt-2 text-gray-600">${exp.responsibilityList}</ul>
+                    </div>
+                `).join('');
+            }
+
+            // Update Template 2
+            const t2 = document.getElementById('template-2');
+            if (t2) {
+                t2.querySelector('#resume-name-2').textContent = name;
+                t2.querySelector('#resume-contact-2').textContent = `${email} | ${phone} | ${linkedin}`;
+                t2.querySelector('#resume-summary-2').textContent = summary;
+                t2.querySelector('#resume-education-2').innerHTML = `${degree}<br>${university}`;
+                t2.querySelector('#resume-skills-2').textContent = skills;
+                const experience2 = t2.querySelector('#resume-experience-2');
+                experience2.innerHTML = experienceEntries.map(exp => `
+                    <div class="mb-2">
+                        <div class="flex justify-between">
+                            <h3 class="font-bold text-gray-700">${exp.jobTitle}</h3>
+                            <span class="text-pink-500">2020 - Present</span>
+                        </div>
+                        <p class="italic text-gray-600">${exp.company}</p>
+                        <ul class="list-disc list-inside mt-2 text-gray-600">${exp.responsibilityList}</ul>
+                    </div>
+                `).join('');
+            }
+            
+            // Update Template 3
+            const t3 = document.getElementById('template-3');
+            if (t3) {
+                t3.querySelector('#resume-name-3').textContent = name;
+                t3.querySelector('#resume-contact-3').innerHTML = `${email}<br>${phone}<br>${linkedin}`;
+                t3.querySelector('#resume-summary-3').textContent = summary;
+                t3.querySelector('#resume-education-3').innerHTML = `${degree}<br>${university}`;
+                t3.querySelector('#resume-skills-3').textContent = skills;
+                const experience3 = t3.querySelector('#resume-experience-3');
+                experience3.innerHTML = experienceEntries.map(exp => `
+                    <div class="mb-2">
+                        <div class="flex justify-between">
+                            <h3 class="font-bold text-gray-700">${exp.jobTitle}</h3>
+                            <span class="text-gray-500">2020 - Present</span>
+                        </div>
+                        <p class="italic text-gray-600">${exp.company}</p>
+                        <ul class="list-disc list-inside mt-2 text-gray-600">${exp.responsibilityList}</ul>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function updateTemplateDisplay() {
+            templates.forEach(t => t.classList.add('hidden'));
+            document.getElementById(currentTemplateId).classList.remove('hidden');
+            templateButtons.forEach(btn => btn.classList.remove('border-indigo-500'));
+            document.getElementById(currentTemplateId + '-btn').classList.add('border-indigo-500');
+        }
+
+        async function generateOptimizedContent() {
+            loadingIndicatorBuilder.classList.remove('hidden');
+            generateBtn.disabled = true;
+
+            const draftData = {
+                name: nameInput.value,
+                industry: industryInput.value,
+                summary: summaryInput.value,
+                experience: Array.from(experienceContainer.querySelectorAll('.bg-gray-50')).map(block => ({
+                    jobTitle: block.querySelector('.job-title').value,
+                    company: block.querySelector('.company').value,
+                    responsibilities: block.querySelector('.responsibilities').value
+                })),
+                skills: skillsInput.value
+            };
+
+            try {
+                const prompt = `You are an expert resume writer. Given the following resume information, optimize the professional summary and job responsibilities to be more impactful, concise, and ATS-friendly. Use strong action verbs and quantify achievements where possible. The target industry is "${draftData.industry}".
+                
+                Here is the draft information:
+                - Professional Summary: "${draftData.summary}"
+                - Work Experience: ${JSON.stringify(draftData.experience)}
+                - Skills: ${draftData.skills}
+
+                Provide a JSON object with the following structure:
+                {
+                    "optimizedSummary": "Optimized summary text...",
+                    "optimizedExperience": [
+                        {
+                            "jobTitle": "Job Title",
+                            "company": "Company Name",
+                            "responsibilities": ["Optimized bullet point 1", "Optimized bullet point 2"]
+                        }
+                    ]
+                }
+                `;
+
+                const response = await callGeminiAPI(prompt);
+                const optimizedData = JSON.parse(response);
+
+                summaryInput.value = optimizedData.optimizedSummary;
+                optimizedData.optimizedExperience.forEach((exp, index) => {
+                    const expBlock = experienceContainer.querySelectorAll('.bg-gray-50')[index];
+                    if (expBlock) {
+                        expBlock.querySelector('.job-title').value = exp.jobTitle;
+                        expBlock.querySelector('.company').value = exp.company;
+                        expBlock.querySelector('.responsibilities').value = exp.responsibilities.join('\n');
+                    }
+                });
+
+                updatePreview();
+
+            } catch (error) {
+                console.error('Error generating optimized content:', error);
+                alert('Failed to generate optimized resume. Please check the console for details.');
+            } finally {
+                loadingIndicatorBuilder.classList.add('hidden');
+                generateBtn.disabled = false;
+            }
+        }
+
+        async function reviewCV() {
+            const file = cvFileInput.files[0];
+            if (!file) {
+                alert("Please upload a file to review.");
+                return;
+            }
+            
+            loadingIndicatorReviewer.classList.remove('hidden');
+            reviewButton.disabled = true;
+
+            try {
+                const fileContent = await parseFile(file);
+                const prompt = `You are an expert resume reviewer. Provide a detailed, constructive review of the following resume content. Focus on:
+                - **ATS-friendliness:** How well is it formatted for Applicant Tracking Systems?
+                - **Clarity and Impact:** Are the bullet points concise and do they use strong action verbs?
+                - **Quantification:** Are there measurable results (e.g., "increased sales by 15%")? Suggest where they could be added.
+                - **Overall Suggestions:** Provide a summary of key improvements.
+
+                Resume content:
+                "${fileContent}"
+
+                Structure your response using markdown for readability, with clear headings for each section.`;
+
+                const response = await callGeminiAPI(prompt);
+                reviewContent = response;
+                showReviewOutput();
+
+            } catch (error) {
+                console.error('Error reviewing CV:', error);
+                alert('Failed to review CV. Please ensure the file is a valid .txt, .docx, or .pdf and try again.');
+            } finally {
+                loadingIndicatorReviewer.classList.add('hidden');
+                reviewButton.disabled = false;
+            }
+        }
+        
+        function showReviewOutput() {
+            mainContentArea.classList.add('hidden');
+            reviewOutputDiv.classList.remove('hidden');
+            reviewOutputDiv.innerHTML = `
+                <h2 class="text-2xl font-bold text-center mb-4">CV Review Results</h2>
+                <div class="prose max-w-none">${marked.parse(reviewContent)}</div>
+            `;
+        }
+
+        async function parseFile(file) {
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const arrayBuffer = e.target.result;
+                    if (fileExtension === 'txt') {
+                        resolve(new TextDecoder("utf-8").decode(arrayBuffer));
+                    } else if (fileExtension === 'docx') {
+                        try {
+                            const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                            resolve(result.value);
+                        } catch (error) {
+                            reject(new Error("Failed to parse DOCX file."));
+                        }
+                    } else if (fileExtension === 'pdf') {
+                        try {
+                            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                            let text = '';
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                const page = await pdf.getPage(i);
+                                const content = await page.getTextContent();
+                                text += content.items.map(item => item.str).join(' ');
+                            }
+                            resolve(text);
+                        } catch (error) {
+                            reject(new Error("Failed to parse PDF file."));
+                        }
+                    } else {
+                        reject(new Error("Unsupported file type."));
+                    }
+                };
+                reader.onerror = () => reject(new Error("Failed to read the file."));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        async function callGeminiAPI(prompt) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+            const options = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }]
+                }),
+            };
+
+            // This is a placeholder for a real API call.
+            // In a live environment, you would need a valid API key and a working backend.
+            // This mock function simulates a successful API response.
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    if (prompt.includes('ATS-friendly')) {
+                        const mockOptimizedResponse = {
+                            optimizedSummary: "Results-driven Software Engineer with 5+ years of experience in full-stack development, specializing in React and Node.js. Proven ability to optimize application performance, reduce load times by 20%, and enhance user experience. Eager to apply technical skills to innovative projects.",
+                            optimizedExperience: [
+                                {
+                                    jobTitle: "Senior Software Engineer",
+                                    company: "Tech Innovations Inc.",
+                                    responsibilities: [
+                                        "Led a team of 4 engineers in developing and launching a new e-commerce platform, increasing sales by 30% in the first quarter.",
+                                        "Architected and implemented a microservices-based backend using Node.js and AWS Lambda, improving system scalability by 50%.",
+                                        "Optimized database queries and front-end rendering, which reduced page load times by 20% and improved user engagement.",
+                                        "Mentored junior developers and conducted code reviews to ensure high-quality, maintainable code."
+                                    ]
+                                }
+                            ]
+                        };
+                        resolve(JSON.stringify(mockOptimizedResponse));
+                    } else if (prompt.includes('ATS-friendliness')) {
+                        const mockReviewResponse = `# ATS-Friendliness Review
+## Overall ATS Score: 8/10
+Your resume has a clear structure and uses standard section headings like "Summary," "Experience," and "Skills," which are easily parsed by Applicant Tracking Systems.
+
+### Strengths
+* **Clear Headings:** The section titles are standard and recognizable.
+* **Font and Layout:** The simple, clean layout with standard fonts (like Inter) is highly readable for both humans and machines.
+
+### Areas for Improvement
+* **Keywords:** While you have a good list of skills, ensure the keywords in your job descriptions directly match those in job postings you're applying for.
+* **Formatting:** Avoid complex tables or columns as they can sometimes confuse older ATS.
+
+## Content & Impact Review
+### Strengths
+* **Action Verbs:** You use strong action verbs like "Developed" and "Collaborated."
+* **Clarity:** The descriptions are easy to understand.
+
+### Areas for Improvement
+* **Quantification:** This is the most significant area for improvement. For example, instead of "Managed full-stack development," you could say "Managed a team of 4 full-stack developers to deliver a critical project on a compressed timeline."
+* **Metrics:** Add measurable results to your bullet points. For instance, "Optimized application performance" could become "Optimized application performance, resulting in a 20% reduction in load times and a 15% increase in user retention."
+
+## Final Recommendations
+To maximize your resume's effectiveness:
+1.  **Quantify everything:** Use numbers and metrics to showcase your impact.
+2.  **Tailor keywords:** Customize your skills and job descriptions for each application.
+3.  **Refine the summary:** Make the professional summary a powerful, 2-3 sentence pitch that highlights your most relevant skills and achievements.`;
+                        resolve(mockReviewResponse);
+                    }
+                    else {
+                        reject(new Error("Mock API response not found."));
+                    }
+                }, 1500); // Simulate network delay
+            });
+        }
+        
+        function exportHtml() {
+            const resumeContent = document.getElementById(currentTemplateId).outerHTML;
+            const blob = new Blob([resumeContent], { type: "text/html" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "resume.html";
+            link.click();
+        }
+
+        function exportPdf() {
+            const element = document.getElementById('resume-output');
+            const opt = {
+                margin: 10,
+                filename: 'resume.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+        
+        // Initial setup
+        updatePreview();
+        updateTemplateDisplay();
+    </script>
+</body>
+</html>
